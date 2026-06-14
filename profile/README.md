@@ -18,6 +18,9 @@
 - **[Seed](https://github.com/the-orrery/seed)** — uv-native Python 项目脚手架:Copier 模版 + 薄编排 CLI(`seed new` / `seed update`)。
 - **[doc-skills](https://github.com/the-orrery/doc-skills)** — Claude Code / Codex skills:`doc-write`(按体裁生成正式文档)+ `doc-xray`(成稿质量体检打分)。
 
+## 投资 · Investing
+- **[sextant](https://github.com/the-orrery/sextant)** — local-first 投资推理 CLI:本地 context/缓存/检索/eval + persona fan-out + 可调 OpenAI-compatible endpoint。数据(行情缓存/持仓/计划)都在你本地,仓里只有代码。
+
 ## 语音 · Voice
 - **[scribe](https://github.com/the-orrery/scribe)** — 本地离线语音听写:麦克风 → 常驻热 ASR 守护 → 剪贴板/光标。纯离线。
 
