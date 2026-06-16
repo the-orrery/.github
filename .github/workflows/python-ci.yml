@@ -22,6 +22,10 @@ on:
       pyrefly-version:
         type: string
         default: "1.0.0"
+      private-deps:
+        # set true for repos with private the-orrery git deps (needs ORRERY_CI_* secrets + caller `secrets: inherit`)
+        type: boolean
+        default: false
 
 jobs:
   check:
@@ -32,16 +36,18 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ inputs.python-version }}
-      # private 共享包(orrery-telemetry 等)的 git 依赖: org GitHub App 现签 1h token,
-      # 把 ssh:// 依赖 URL 透明重写成带 token 的 https 供 uv sync clone。本地开发仍走 ssh。
-      # secret 经 caller 的 `secrets: inherit` 注入。
+      # private 共享包(orrery-telemetry 等)的 git 依赖, 仅 private-deps:true 时启用:
+      # org GitHub App 现签 1h token, 把 ssh:// 依赖 URL 透明重写成带 token 的 https 供 uv sync clone。
+      # 本地开发仍走 ssh。secret 经 caller 的 `secrets: inherit` 注入。
       - uses: actions/create-github-app-token@v3
+        if: ${{ inputs.private-deps }}
         id: app-token
         with:
           client-id: ${{ secrets.ORRERY_CI_CLIENT_ID }}
           private-key: ${{ secrets.ORRERY_CI_APP_KEY }}
           owner: the-orrery
-      - run: git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
+      - if: ${{ inputs.private-deps }}
+        run: git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
       - run: uv sync --locked
       # ruff/pyrefly run via uvx/--with (not in dev-deps) — keeps repo .venv pure
       # Python so `uv sync` never pulls a Rust binary that trips local EDR.
