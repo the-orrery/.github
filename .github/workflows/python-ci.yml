@@ -1,0 +1,41 @@
+# Reusable CI for the-orrery Python repos (seed-generated stack).
+# A repo's own .github/workflows/ci.yml shrinks to:
+#
+#   jobs:
+#     ci:
+#       uses: the-orrery/.github/.github/workflows/python-ci.yml@v1
+#
+# Change the stack once here + bump the tag → every repo follows. The repo still
+# carries its own [tool.ruff]/pyproject (ruff has no remote `extend`), so rule
+# changes go via seed's template default + `seed status` audit, not this file.
+name: python-ci
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        type: string
+        default: "3.12"
+      ruff-version:
+        type: string
+        default: "0.15.16"
+      pyrefly-version:
+        type: string
+        default: "1.0.0"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          python-version: ${{ inputs.python-version }}
+      - run: uv sync --locked
+      # ruff/pyrefly run via uvx/--with (not in dev-deps) — keeps repo .venv pure
+      # Python so `uv sync` never pulls a Rust binary that trips local EDR.
+      - run: uvx ruff@${{ inputs.ruff-version }} check .
+      - run: uvx ruff@${{ inputs.ruff-version }} format --check .
+      - run: uv run --with pyrefly==${{ inputs.pyrefly-version }} pyrefly check
+      - run: uv run pytest
