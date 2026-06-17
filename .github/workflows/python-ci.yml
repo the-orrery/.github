@@ -36,6 +36,11 @@ on:
         # TOML inline table, e.g. "{'tests/**'=['ARG']}". Empty = no extension.
         type: string
         default: ""
+      ruff-line-length:
+        # Override canonical line-length (default 88). Pass e.g. "120" for wider repos.
+        # Empty string = use canonical 88.
+        type: string
+        default: ""
 
 jobs:
   check:
@@ -83,6 +88,9 @@ jobs:
       - name: ruff check
         run: |
           RUFF_ARGS="--config ${{ runner.temp }}/orrery-ruff.toml"
+          if [ -n "${{ inputs.ruff-line-length }}" ]; then
+            RUFF_ARGS="$RUFF_ARGS --config line-length=${{ inputs.ruff-line-length }}"
+          fi
           if [ -n "${{ inputs.ruff-extend-ignore }}" ]; then
             RUFF_ARGS="$RUFF_ARGS --config lint.extend-ignore=${{ inputs.ruff-extend-ignore }}"
           fi
@@ -92,6 +100,10 @@ jobs:
           uvx ruff@${{ inputs.ruff-version }} check $RUFF_ARGS .
       - name: ruff format check
         run: |
-          uvx ruff@${{ inputs.ruff-version }} format --check --config ${{ runner.temp }}/orrery-ruff.toml .
+          FORMAT_ARGS="--config ${{ runner.temp }}/orrery-ruff.toml"
+          if [ -n "${{ inputs.ruff-line-length }}" ]; then
+            FORMAT_ARGS="$FORMAT_ARGS --config line-length=${{ inputs.ruff-line-length }}"
+          fi
+          uvx ruff@${{ inputs.ruff-version }} format --check $FORMAT_ARGS .
       - run: uv run --with pyrefly==${{ inputs.pyrefly-version }} pyrefly check
       - run: uv run pytest
