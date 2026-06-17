@@ -85,25 +85,30 @@ jobs:
           RUFF_EOF
       # ruff/pyrefly run via uvx/--with (not in dev-deps) — keeps repo .venv pure
       # Python so `uv sync` never pulls a Rust binary that trips local EDR.
+      # Inputs pass via env (not ${{ }} in the run body) to avoid expression
+      # injection; args build into a bash array + quoted "${args[@]}" expansion so
+      # extend values containing spaces/commas don't word-split (was a v6 bug).
       - name: ruff check
+        env:
+          RUFF_CONFIG: ${{ runner.temp }}/orrery-ruff.toml
+          RUFF_VERSION: ${{ inputs.ruff-version }}
+          LINE_LENGTH: ${{ inputs.ruff-line-length }}
+          EXTEND_IGNORE: ${{ inputs.ruff-extend-ignore }}
+          EXTEND_PFI: ${{ inputs.ruff-extend-per-file-ignores }}
         run: |
-          RUFF_ARGS="--config ${{ runner.temp }}/orrery-ruff.toml"
-          if [ -n "${{ inputs.ruff-line-length }}" ]; then
-            RUFF_ARGS="$RUFF_ARGS --config line-length=${{ inputs.ruff-line-length }}"
-          fi
-          if [ -n "${{ inputs.ruff-extend-ignore }}" ]; then
-            RUFF_ARGS="$RUFF_ARGS --config lint.extend-ignore=${{ inputs.ruff-extend-ignore }}"
-          fi
-          if [ -n "${{ inputs.ruff-extend-per-file-ignores }}" ]; then
-            RUFF_ARGS="$RUFF_ARGS --config lint.extend-per-file-ignores=${{ inputs.ruff-extend-per-file-ignores }}"
-          fi
-          uvx ruff@${{ inputs.ruff-version }} check $RUFF_ARGS .
+          args=(--config "$RUFF_CONFIG")
+          if [ -n "$LINE_LENGTH" ]; then args+=(--config "line-length=$LINE_LENGTH"); fi
+          if [ -n "$EXTEND_IGNORE" ]; then args+=(--config "lint.extend-ignore=$EXTEND_IGNORE"); fi
+          if [ -n "$EXTEND_PFI" ]; then args+=(--config "lint.extend-per-file-ignores=$EXTEND_PFI"); fi
+          uvx "ruff@$RUFF_VERSION" check "${args[@]}" .
       - name: ruff format check
+        env:
+          RUFF_CONFIG: ${{ runner.temp }}/orrery-ruff.toml
+          RUFF_VERSION: ${{ inputs.ruff-version }}
+          LINE_LENGTH: ${{ inputs.ruff-line-length }}
         run: |
-          FORMAT_ARGS="--config ${{ runner.temp }}/orrery-ruff.toml"
-          if [ -n "${{ inputs.ruff-line-length }}" ]; then
-            FORMAT_ARGS="$FORMAT_ARGS --config line-length=${{ inputs.ruff-line-length }}"
-          fi
-          uvx ruff@${{ inputs.ruff-version }} format --check $FORMAT_ARGS .
+          args=(--config "$RUFF_CONFIG")
+          if [ -n "$LINE_LENGTH" ]; then args+=(--config "line-length=$LINE_LENGTH"); fi
+          uvx "ruff@$RUFF_VERSION" format --check "${args[@]}" .
       - run: uv run --with pyrefly==${{ inputs.pyrefly-version }} pyrefly check
       - run: uv run pytest
