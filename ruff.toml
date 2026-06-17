@@ -1,0 +1,24 @@
+# Canonical ruff configuration for the-orrery Python repos.
+# Consumed by the reusable python-ci workflow via --config.
+# Repos do NOT copy this file — CI fetches it from this repo.
+# Repo-local overrides pass as workflow inputs (ruff-extend-ignore /
+# ruff-extend-per-file-ignores), not as a local [tool.ruff] copy.
+
+line-length = 88
+target-version = "py312"
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF", "C901", "PLR", "RET", "TRY", "PTH", "ARG"]
+# E501: line-length enforced by formatter, not linter
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+# S101: assert is fine in tests
+# PLR2004: magic-value comparisons are fine in tests
+"tests/**" = ["S101", "PLR2004"]
+# PLR0913: CLIs legitimately have many arguments (typer-based entry points)
+"**/cli.py" = ["PLR0913"]
+
+[lint.flake8-bugbear]
+# typer's x = typer.Option(...) default pattern is idiomatic, not a B008 call
+extend-immutable-calls = ["typer.Argument", "typer.Option"]

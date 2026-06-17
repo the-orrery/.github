@@ -3,11 +3,11 @@
 #
 #   jobs:
 #     ci:
-#       uses: the-orrery/.github/.github/workflows/python-ci.yml@v1
+#       uses: the-orrery/.github/.github/workflows/python-ci.yml@v6
 #
-# Change the stack once here + bump the tag → every repo follows. The repo still
-# carries its own [tool.ruff]/pyproject (ruff has no remote `extend`), so rule
-# changes go via seed's template default + `seed status` audit, not this file.
+# Canonical ruff rules live in ruff.toml at this repo's root; CI checks out this
+# repo and passes --config so rule changes propagate by bumping the workflow tag.
+# Repos do NOT copy [tool.ruff] — repo-local overrides go via workflow inputs.
 name: python-ci
 
 on:
@@ -26,6 +26,16 @@ on:
         # set true for repos with private the-orrery git deps (needs ORRERY_CI_* secrets + caller `secrets: inherit`)
         type: boolean
         default: false
+      ruff-extend-ignore:
+        # Repo-specific rules to suppress on top of the canonical config.
+        # TOML array string, e.g. "['TRY003']". Empty string = no extension.
+        type: string
+        default: ""
+      ruff-extend-per-file-ignores:
+        # Repo-specific per-file ignores extending the canonical config.
+        # TOML inline table, e.g. "{'tests/**'=['ARG']}". Empty = no extension.
+        type: string
+        default: ""
 
 jobs:
   check:
@@ -49,9 +59,39 @@ jobs:
       - if: ${{ inputs.private-deps }}
         run: git config --global url."https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/".insteadOf "ssh://git@github.com/"
       - run: uv sync --locked
+      # Write canonical ruff config inline — single source of truth lives here,
+      # so bumping the workflow tag is enough to propagate rule changes to all repos.
+      # Repos do NOT keep a [tool.ruff] select copy; per-repo overrides pass via
+      # ruff-extend-ignore / ruff-extend-per-file-ignores inputs below.
+      - name: write canonical ruff config
+        # Heredoc is unindented so TOML content is written without leading spaces.
+        run: |
+          cat > "${{ runner.temp }}/orrery-ruff.toml" << 'RUFF_EOF'
+          line-length = 88
+          target-version = "py312"
+          [lint]
+          select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF", "C901", "PLR", "RET", "TRY", "PTH", "ARG"]
+          ignore = ["E501"]
+          [lint.per-file-ignores]
+          "tests/**" = ["S101", "PLR2004"]
+          "**/cli.py" = ["PLR0913"]
+          [lint.flake8-bugbear]
+          extend-immutable-calls = ["typer.Argument", "typer.Option"]
+          RUFF_EOF
       # ruff/pyrefly run via uvx/--with (not in dev-deps) — keeps repo .venv pure
       # Python so `uv sync` never pulls a Rust binary that trips local EDR.
-      - run: uvx ruff@${{ inputs.ruff-version }} check .
-      - run: uvx ruff@${{ inputs.ruff-version }} format --check .
+      - name: ruff check
+        run: |
+          RUFF_ARGS="--config ${{ runner.temp }}/orrery-ruff.toml"
+          if [ -n "${{ inputs.ruff-extend-ignore }}" ]; then
+            RUFF_ARGS="$RUFF_ARGS --config lint.extend-ignore=${{ inputs.ruff-extend-ignore }}"
+          fi
+          if [ -n "${{ inputs.ruff-extend-per-file-ignores }}" ]; then
+            RUFF_ARGS="$RUFF_ARGS --config lint.extend-per-file-ignores=${{ inputs.ruff-extend-per-file-ignores }}"
+          fi
+          uvx ruff@${{ inputs.ruff-version }} check $RUFF_ARGS .
+      - name: ruff format check
+        run: |
+          uvx ruff@${{ inputs.ruff-version }} format --check --config ${{ runner.temp }}/orrery-ruff.toml .
       - run: uv run --with pyrefly==${{ inputs.pyrefly-version }} pyrefly check
       - run: uv run pytest
