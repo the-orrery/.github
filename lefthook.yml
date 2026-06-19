@@ -1,0 +1,9 @@
+# KB commit gate (adr-029 fail-closed): this repo is a registered KB source
+# (contracts/ domain), so `rhizome check` must validate changed Markdown before
+# commit. rhizome check is domain-aware — only Markdown under an INDEX.md domain
+# is validated; profile/ and other non-domain Markdown are skipped.
+pre-commit:
+  commands:
+    kb-check:
+      run: rhizome check {staged_files}
+      glob: "*.md"
