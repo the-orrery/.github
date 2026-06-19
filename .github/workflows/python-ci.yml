@@ -51,7 +51,7 @@ jobs:
         with:
           enable-cache: true
           python-version: ${{ inputs.python-version }}
-      # private 共享包(orrery-telemetry 等)的 git 依赖, 仅 private-deps:true 时启用:
+      # private 共享包(gnomon 等)的 git 依赖, 仅 private-deps:true 时启用:
       # org GitHub App 现签 1h token, 把 ssh:// 依赖 URL 透明重写成带 token 的 https 供 uv sync clone。
       # 本地开发仍走 ssh。secret 经 caller 的 `secrets: inherit` 注入。
       - uses: actions/create-github-app-token@v3
